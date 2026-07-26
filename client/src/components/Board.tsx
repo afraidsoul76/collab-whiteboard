@@ -340,6 +340,9 @@ export default function Board({ name, room }: BoardProps) {
     const draft = textDraft;
     const value = textInputRef.current?.value.trim() ?? "";
     setTextDraft(null);
+    // Return to the pen so the next click draws instead of opening another
+    // text box. (Re-select the text tool to place another label.)
+    setTool("pen");
     if (!draft || !value) return;
     const item: Item = {
       kind: "text",
@@ -472,6 +475,7 @@ export default function Board({ name, room }: BoardProps) {
                   commitText();
                 } else if (e.key === "Escape") {
                   setTextDraft(null);
+                  setTool("pen");
                 }
               }}
             />
