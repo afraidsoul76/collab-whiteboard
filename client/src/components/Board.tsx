@@ -358,6 +358,12 @@ export default function Board({ name, room }: BoardProps) {
     socket.emit("add", item);
   };
 
+  // Discard the open text box without placing anything, and return to the pen.
+  const cancelText = () => {
+    setTextDraft(null);
+    setTool("pen");
+  };
+
   // ---- Actions ----
   const exportPng = () => {
     const { w, h } = cssSize();
@@ -457,28 +463,41 @@ export default function Board({ name, room }: BoardProps) {
 
           {/* In-place text entry */}
           {textDraft && (
-            <input
-              ref={textInputRef}
-              className="text-input"
-              style={{
-                left: textDraft.left,
-                top: textDraft.top,
-                color,
-                fontSize: fontSizeFor(size),
-              }}
-              defaultValue=""
-              placeholder="Type…"
-              onBlur={commitText}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
+            <div
+              className="text-draft"
+              style={{ left: textDraft.left, top: textDraft.top }}
+            >
+              <input
+                ref={textInputRef}
+                className="text-input"
+                style={{ color, fontSize: fontSizeFor(size) }}
+                defaultValue=""
+                placeholder="Type…"
+                onBlur={commitText}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    commitText();
+                  } else if (e.key === "Escape") {
+                    cancelText();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="text-draft__delete"
+                title="Delete text box (Esc)"
+                aria-label="Delete text box"
+                // onMouseDown (not onClick) + preventDefault stops the input's
+                // blur from firing a commit before we cancel.
+                onMouseDown={(e) => {
                   e.preventDefault();
-                  commitText();
-                } else if (e.key === "Escape") {
-                  setTextDraft(null);
-                  setTool("pen");
-                }
-              }}
-            />
+                  cancelText();
+                }}
+              >
+                ✕
+              </button>
+            </div>
           )}
 
           {/* Other people's live cursors */}
