@@ -12,14 +12,17 @@ Built with **React + TypeScript** on the front end and a **Node + Socket.IO** se
 
 ## ✨ Features
 
-- **Live multiplayer drawing** — every stroke broadcasts to everyone in the room in real time.
+- **Live multiplayer drawing** — every stroke broadcasts to everyone in the room in real time, and you see other people's strokes *grow* as they draw (not just when they finish).
+- **Full tool palette** — pen, eraser, line, arrow, rectangle, ellipse, and a text tool.
+- **Multiplayer undo / redo** — per-user history, synced to everyone. Undo removes exactly *your* last item without touching anyone else's. `Ctrl/Cmd+Z` and `Ctrl/Cmd+Shift+Z` work too.
 - **Live cursors** — see where each participant is pointing, labeled with their name and color.
+- **Built-in chat** — a slide-out panel with unread badges, so collaborators can talk while they draw.
+- **Export as PNG** — download the current board as an image (white background composited in).
 - **Presence** — avatars and an online count update as people join and leave.
 - **Rooms via shareable links** — `?room=team-standup` puts everyone on the same board; one click copies the invite link.
-- **Late-joiner replay** — the server keeps the board state, so people who join late see everything already drawn.
-- **Resolution-independent strokes** — coordinates are normalized (0–1), so a board drawn on a laptop looks right on a phone.
-- **Tooling** — color swatches + custom color picker, five brush sizes, and a room-wide "clear board".
-- **Retina-crisp canvas** — device-pixel-ratio aware rendering with full redraw on resize.
+- **Late-joiner replay** — the server keeps board state + recent chat, so people who join late see everything already there.
+- **Resolution-independent** — coordinates are normalized (0–1), so a board drawn on a laptop looks right on a phone.
+- **Retina-crisp, two-layer canvas** — a static layer for committed art and a separate live layer for in-progress strokes, keeping redraws cheap. Device-pixel-ratio aware.
 
 ## 🧱 Tech stack
 
@@ -64,10 +67,12 @@ collab-whiteboard/
 │   └── src/
 │       ├── App.tsx         # join screen (name + room)
 │       ├── socket.ts       # Socket.IO client singleton
+│       ├── draw.ts         # item → canvas renderer (shared with PNG export)
 │       ├── types.ts        # shared event/data types
 │       └── components/
-│           ├── Board.tsx   # canvas, drawing loop, cursors, presence
-│           └── Toolbar.tsx # colors, brush sizes, clear
+│           ├── Board.tsx   # two-layer canvas, tools, undo/redo, cursors, export
+│           ├── Toolbar.tsx # tools, colors, sizes, undo/redo, export, clear
+│           └── Chat.tsx    # slide-out chat panel
 ├── server/                 # Node + Socket.IO back end
 │   └── src/
 │       ├── index.ts        # rooms, broadcast, presence, static hosting
@@ -77,42 +82,57 @@ collab-whiteboard/
 
 ## 🔌 How the realtime layer works
 
-Communication is a small, typed set of Socket.IO events. Coordinates are always
+Everything on the board is a typed **`Item`** — a `path` (pen/eraser), a `shape`
+(rect/ellipse/line/arrow), or `text`. Each item carries an `id` and an `owner`,
+which is exactly what makes per-user undo possible: the server can find and
+remove *your* last item without disturbing anyone else's. Coordinates are always
 normalized to `0..1`.
 
 **Client → Server**
 
-| Event    | Payload                        | Meaning                              |
-| -------- | ------------------------------ | ------------------------------------ |
-| `join`   | `{ room, name }`               | enter a room                         |
-| `draw`   | `{ id, color, size, from, to}` | one line segment of a stroke         |
-| `cursor` | `{ x, y }`                     | pointer moved (throttled ~25/sec)    |
-| `clear`  | –                              | wipe the board for the room          |
+| Event    | Payload            | Meaning                                     |
+| -------- | ------------------ | ------------------------------------------- |
+| `join`   | `{ room, name }`   | enter a room                                |
+| `live`   | `Item`             | in-progress preview while drawing (not saved)|
+| `add`    | `Item`             | commit a finished item                      |
+| `undo`   | –                  | undo my most recent item                    |
+| `redo`   | –                  | redo my most recently undone item           |
+| `cursor` | `{ x, y }`         | pointer moved (throttled ~25/sec)           |
+| `chat`   | `text`             | send a chat message                         |
+| `clear`  | –                  | wipe the board for the room                 |
 
 **Server → Client**
 
-| Event          | Payload                          | Meaning                                 |
-| -------------- | -------------------------------- | --------------------------------------- |
-| `init`         | `{ you, segments, users }`       | your identity + full board on join      |
-| `draw`         | `Segment`                        | someone else drew a segment             |
-| `presence`     | `User[]`                         | the room's roster changed               |
-| `cursor`       | `{ id, x, y }`                   | someone else's cursor moved             |
-| `cursor:leave` | `id`                             | remove a departed user's cursor         |
-| `clear`        | –                                | board was cleared                       |
+| Event          | Payload                        | Meaning                            |
+| -------------- | ------------------------------ | ---------------------------------- |
+| `init`         | `{ you, items, users, chat }`  | your identity + full board on join |
+| `live`         | `Item`                         | someone's in-progress preview      |
+| `add`          | `Item`                         | an item was committed              |
+| `remove`       | `id`                           | an item was undone/removed         |
+| `presence`     | `User[]`                       | the room's roster changed          |
+| `cursor`       | `{ id, x, y }`                 | someone else's cursor moved        |
+| `cursor:leave` | `id`                           | remove a departed user's cursor    |
+| `chat`         | `ChatMessage`                  | a chat message arrived             |
+| `clear`        | –                              | board was cleared                  |
 
-The server keeps per-room state (`segments` + `users`) in memory. A stroke is
-streamed as many small `from → to` segments as the pointer moves, so remote
-clients see the line grow live rather than appearing only when the pen lifts.
-Empty rooms are garbage-collected when the last person leaves.
+The server keeps per-room state — ordered `items`, `users`, recent `chat`, and a
+per-user redo stack — in memory. While you draw, `live` events stream the
+in-progress item so others watch the line grow; on release, one `add` commits it.
+`undo`/`redo` are resolved server-side and echoed to everyone so all clients stay
+consistent. Empty rooms are garbage-collected when the last person leaves.
+
+The client renders on **two stacked canvases**: a base layer for committed items
+(redrawn only when the item set changes) and a live layer for in-progress strokes
+(redrawn every frame). That split keeps interaction smooth even on a busy board.
 
 ## 🧭 Roadmap / ideas
 
 Good next steps if you want to keep extending it:
 
 - Persist boards (Redis or Postgres) so they survive server restarts
-- Undo / redo (per-user stroke stacks)
-- Shapes, text, and an eraser tool
-- Export the board as PNG/SVG
+- Selection + move/delete of existing items
+- Multiple pages / infinite canvas with pan & zoom
+- Sticky notes and image paste
 - Auth + private rooms
 
 ## 📄 License
