@@ -5,11 +5,14 @@ services:
     plan: free
     region: oregon
     branch: main
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
         value: 20
-      - key: NODE_ENV
-        value: production
+      # devDependencies (vite, typescript, tsx) are needed during build.
+      # Render sets NODE_ENV=production by default, which makes npm skip them
+      # unless we explicitly override:
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
