@@ -23,3 +23,7 @@ npm-debug.log*
 # misc
 coverage/
 .cache/
+
+# source recordings (we commit the optimised gif in docs/)
+Demo.mp4
+*.mp4
