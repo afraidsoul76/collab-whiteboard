@@ -9,7 +9,8 @@ A **real-time collaborative whiteboard**. Open it in two tabs (or send a friend 
 
 Built with **React + TypeScript** on the front end and a **Node + Socket.IO** server on the back, wired together as a single npm-workspaces monorepo and deployed as a single service.
 
-**🔗 Live demo:** _add your Render URL here once deployed_ · **📼 Repo demo below**
+**🔗 Try it live: [collab-whiteboard-ydn2.onrender.com](https://collab-whiteboard-ydn2.onrender.com)**
+_(free-tier host — first request after ~15 min of inactivity takes ~30 s to wake up)_
 
 ![demo](docs/demo.gif)
 
