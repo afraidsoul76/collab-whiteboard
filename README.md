@@ -1,12 +1,17 @@
 # 🎨 Collab Whiteboard
 
+[![CI](https://github.com/afraidsoul76/collab-whiteboard/actions/workflows/ci.yml/badge.svg)](https://github.com/afraidsoul76/collab-whiteboard/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Node 18+](https://img.shields.io/badge/node-18%2B-brightgreen)](https://nodejs.org/)
+[![Deployed on Render](https://img.shields.io/badge/deploy-Render-46E3B7?logo=render&logoColor=white)](https://render.com)
+
 A **real-time collaborative whiteboard**. Open it in two tabs (or send a friend the link), pick the same room, and draw together — strokes, live cursors, and presence sync instantly over WebSockets.
 
-Built with **React + TypeScript** on the front end and a **Node + Socket.IO** server on the back, wired together as a single npm-workspaces monorepo.
+Built with **React + TypeScript** on the front end and a **Node + Socket.IO** server on the back, wired together as a single npm-workspaces monorepo and deployed as a single service.
 
-> _Add a screenshot or GIF here once you run it — a short screen recording of two windows drawing at once is the single best thing you can put at the top of this README._
->
-> `![demo](docs/demo.gif)`
+**🔗 Live demo:** _add your Render URL here once deployed_ · **📼 Repo demo below**
+
+![demo](docs/demo.gif)
 
 ---
 
@@ -56,8 +61,30 @@ npm start         # serves the built client AND the socket server on :3001
 ```
 
 In production the Express server serves the compiled client bundle, so the whole
-app runs as a single service on one port — easy to deploy to Render, Railway,
-Fly.io, or any Node host.
+app runs as a single service on one port.
+
+### Deploy to Render (free)
+
+This repo ships a [`render.yaml`](render.yaml) blueprint. To deploy:
+
+1. Sign up at [render.com](https://render.com) and connect your GitHub account.
+2. **New → Blueprint**, pick this repo, click **Apply**.
+3. Render reads `render.yaml`, provisions a free Node web service, runs
+   `npm ci && npm run build`, and boots `npm start`. Health check at `/health`.
+
+That's it — the app is live at `https://<your-service>.onrender.com`. First
+request after 15 min of inactivity spins the free instance back up (~30 s).
+
+### Tests
+
+```bash
+npm test
+```
+
+Runs the server test suite ([`server/src/app.test.ts`](server/src/app.test.ts))
+against a real Socket.IO server on an ephemeral port. Covers `/health`,
+add/undo/redo broadcast, per-user undo isolation, cursor fan-out, room
+garbage collection, `clear`, and late-joiner state replay.
 
 ## 🗂️ Project structure
 
@@ -75,8 +102,11 @@ collab-whiteboard/
 │           └── Chat.tsx    # slide-out chat panel
 ├── server/                 # Node + Socket.IO back end
 │   └── src/
-│       ├── index.ts        # rooms, broadcast, presence, static hosting
+│       ├── app.ts          # factory: rooms, broadcast, presence, static hosting
+│       ├── index.ts        # entrypoint: builds app + listens on PORT
+│       ├── app.test.ts     # end-to-end Socket.IO tests (vitest)
 │       └── types.ts        # shared event/data types
+├── render.yaml             # one-click deploy blueprint
 └── package.json            # npm workspaces + dev/build scripts
 ```
 
